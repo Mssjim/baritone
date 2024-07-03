@@ -19,6 +19,8 @@ package baritone.process;
 
 import baritone.Baritone;
 import baritone.api.BaritoneAPI;
+import baritone.api.command.argument.IArgConsumer;
+import baritone.api.command.exception.CommandException;
 import baritone.api.pathing.goals.*;
 import baritone.api.process.IMineProcess;
 import baritone.api.process.PathingCommand;
@@ -26,6 +28,9 @@ import baritone.api.process.PathingCommandType;
 import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.cache.CachedChunk;
+import baritone.command.argument.ArgConsumer;
+import baritone.command.argument.CommandArguments;
+import baritone.command.defaults.TunnelCommand;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BaritoneProcessHelper;
@@ -40,7 +45,6 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.state.BlockState;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -61,6 +65,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private GoalRunAway branchPointRunaway;
     private int desiredQuantity;
     private int tickCount;
+
+    public static BlockOptionalMetaLookup lastMining = null;
 
     public MineProcess(Baritone baritone) {
         super(baritone);
@@ -194,6 +200,21 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         if (!legit && !Baritone.settings().exploreForBlocks.value) {
             return null;
         }
+
+        if (knownOreLocations.isEmpty()) {
+            TunnelCommand tunnelCommand = new TunnelCommand(baritone);
+            IArgConsumer args = new ArgConsumer(baritone.getCommandManager(), new LinkedList<>(CommandArguments.from("-1 -1 -1")), new LinkedList<>());
+            try {
+                tunnelCommand.execute("tunnel", args);
+            } catch (CommandException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (!Baritone.settings().exploreForBlocks.value) {
+            return null;
+        }
+
         // only when we should explore for blocks or are in legit mode we do this
         int y = Baritone.settings().legitMineYLevel.value;
         if (branchPoint == null) {
@@ -400,8 +421,6 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         knownOreLocations.addAll(dropped);
         BlockPos playerFeet = ctx.playerFeet();
         BlockStateInterface bsi = new BlockStateInterface(ctx);
-
-
         BlockOptionalMetaLookup filter = filterFilter();
         if (filter == null) {
             return false;
@@ -412,8 +431,6 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         for (int x = playerFeet.getX() - searchDist; x <= playerFeet.getX() + searchDist; x++) {
             for (int y = playerFeet.getY() - searchDist; y <= playerFeet.getY() + searchDist; y++) {
                 for (int z = playerFeet.getZ() - searchDist; z <= playerFeet.getZ() + searchDist; z++) {
-                    // crucial to only add blocks we can see because otherwise this
-                    // is an x-ray and it'll get caught
                     if (filter.has(bsi.get0(x, y, z))) {
                         BlockPos pos = new BlockPos(x, y, z);
                         if ((Baritone.settings().legitMineIncludeDiagonals.value && knownOreLocations.stream().anyMatch(ore -> ore.distSqr(pos) <= 2 /* sq means this is pytha dist <= sqrt(2) */)) || RotationUtils.reachable(ctx, pos, fakedBlockReachDistance).isPresent()) {
@@ -512,6 +529,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
+            lastMining = filter;
             rescan(new ArrayList<>(), new CalculationContext(baritone));
         }
     }

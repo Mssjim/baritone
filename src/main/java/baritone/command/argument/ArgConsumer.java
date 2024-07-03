@@ -63,7 +63,7 @@ public class ArgConsumer implements IArgConsumer {
      */
     private final Deque<ICommandArgument> consumed;
 
-    private ArgConsumer(ICommandManager manager, Deque<ICommandArgument> args, Deque<ICommandArgument> consumed) {
+    public ArgConsumer(ICommandManager manager, Deque<ICommandArgument> args, Deque<ICommandArgument> consumed) {
         this.manager = manager;
         this.context = this.new Context();
         this.args = new LinkedList<>(args);

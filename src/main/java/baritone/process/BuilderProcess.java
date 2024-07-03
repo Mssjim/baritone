@@ -18,6 +18,7 @@
 package baritone.process;
 
 import baritone.Baritone;
+import baritone.api.command.exception.CommandException;
 import baritone.api.pathing.goals.Goal;
 import baritone.api.pathing.goals.GoalBlock;
 import baritone.api.pathing.goals.GoalComposite;
@@ -33,6 +34,7 @@ import baritone.api.schematic.SubstituteSchematic;
 import baritone.api.schematic.format.ISchematicFormat;
 import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
+import baritone.command.defaults.MineCommand;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
@@ -78,6 +80,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -105,6 +110,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     private int numRepeats;
     private List<BlockState> approxPlaceable;
     public int stopAtHeight = 0;
+    private boolean isContinuous = false;
 
     public BuilderProcess(Baritone baritone) {
         super(baritone);
@@ -249,7 +255,22 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     public void clearArea(BlockPos corner1, BlockPos corner2) {
+        isContinuous = false;
         BlockPos origin = new BlockPos(Math.min(corner1.getX(), corner2.getX()), Math.min(corner1.getY(), corner2.getY()), Math.min(corner1.getZ(), corner2.getZ()));
+        int widthX = Math.abs(corner1.getX() - corner2.getX()) + 1;
+        int heightY = Math.abs(corner1.getY() - corner2.getY()) + 1;
+        int lengthZ = Math.abs(corner1.getZ() - corner2.getZ()) + 1;
+        build("clear area", new FillSchematic(widthX, heightY, lengthZ, Blocks.AIR.defaultBlockState()), origin);
+    }
+
+    public void clearAreaContinuous(BlockPos corner1, BlockPos corner2) {
+        isContinuous = true;
+        int layer = Math.min(corner1.getY(), corner2.getY());
+        if(Math.min(corner1.getY(), corner2.getY()) > Baritone.settings().legitMineYLevel.value + 10 && new Random().nextBoolean()) {
+            logDirect("Going back to layer " + Baritone.settings().legitMineYLevel.value);
+            layer = Baritone.settings().legitMineYLevel.value;
+        }
+        BlockPos origin = new BlockPos(Math.min(corner1.getX(), corner2.getX()), layer, Math.min(corner1.getZ(), corner2.getZ()));
         int widthX = Math.abs(corner1.getX() - corner2.getX()) + 1;
         int heightY = Math.abs(corner1.getY() - corner2.getY()) + 1;
         int lengthZ = Math.abs(corner1.getZ() - corner2.getZ()) + 1;
@@ -521,10 +542,27 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
             int max = Baritone.settings().buildRepeatCount.value;
             numRepeats++;
             if (repeat.equals(new Vec3i(0, 0, 0)) || (max != -1 && numRepeats >= max)) {
-                logDirect("Done building");
-                if (Baritone.settings().notificationOnBuildFinished.value) {
-                    logNotification("Done building", false);
+
+                if(!isContinuous) {
+                    logDirect("Done building");
+                    if (Baritone.settings().notificationOnBuildFinished.value) {
+                        logNotification("Done building", false);
+                    }
                 }
+
+                if(isContinuous) {
+                    if(MineProcess.lastMining != null) {
+                        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+                        scheduler.schedule(() -> {
+                            try {
+                                new MineCommand(baritone).execute("mine", MineProcess.lastMining);
+                            } catch (CommandException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }, 100, TimeUnit.MILLISECONDS);
+                    }
+                }
+
                 onLostControl();
                 return null;
             }
@@ -765,6 +803,16 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 logDirect(flowingLiquids.stream()
                         .map(p -> String.format("%s %s %s", p.x, p.y, p.z))
                         .collect(Collectors.joining("\n")));
+                if(MineProcess.lastMining != null) {
+                    ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+                    scheduler.schedule(() -> {
+                        try {
+                            new MineCommand(baritone).execute("mine", MineProcess.lastMining);
+                        } catch (CommandException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }, 100, TimeUnit.MILLISECONDS);
+                }
             }
             return null;
         }

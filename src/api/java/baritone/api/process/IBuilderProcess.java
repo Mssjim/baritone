@@ -68,6 +68,8 @@ public interface IBuilderProcess extends IBaritoneProcess {
 
     void clearArea(BlockPos corner1, BlockPos corner2);
 
+    void clearAreaContinuous(BlockPos corner1, BlockPos corner2);
+
     /**
      * @return A list of block states that are estimated to be placeable by this builder process. You can use this in
      * schematics, for example, to pick a state that the builder process will be happy with, because any variation will
