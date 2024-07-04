@@ -211,9 +211,10 @@ public final class Settings {
             Blocks.DIRT.asItem(),
             Blocks.COBBLESTONE.asItem(),
             Blocks.NETHERRACK.asItem(),
-            Blocks.STONE.asItem()
+            Blocks.STONE.asItem(),
+            Blocks.DEEPSLATE.asItem()
     )));
-
+    
     /**
      * Blocks that Baritone will attempt to avoid (Used in avoidance)
      */
