@@ -106,6 +106,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     private Vec3i origin;
     private int ticks;
     private boolean paused;
+    private boolean eatingPaused = false;
     private int layer;
     private int numRepeats;
     private List<BlockState> approxPlaceable;
@@ -470,6 +471,18 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     private PathingCommand onTick(boolean calcFailed, boolean isSafeToCancel, int recursions) {
+        if (ctx.player().getMainHandItem().getItem().isEdible() && !paused) {
+            logDirect("[Pause] eating " + ctx.player().getMainHandItem().getItem());
+            paused = true;
+            eatingPaused = true;
+        } else if(isContinuous && eatingPaused) {
+            eatingPaused = false;
+            ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.schedule(() -> {
+                logDirect("[Resume]");
+                paused = false;
+            }, 3000, TimeUnit.MILLISECONDS);
+        }
         if (recursions > 100) { // onTick calls itself, don't crash
             return new PathingCommand(null, PathingCommandType.SET_GOAL_AND_PATH);
         }
