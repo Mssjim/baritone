@@ -34,7 +34,9 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -61,6 +63,25 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private GoalRunAway branchPointRunaway;
     private int desiredQuantity;
     private int tickCount;
+    private BlockOptionalMetaLookup blocksToFind;
+    private final LinkedList<Block> listOres = new LinkedList<Block>() {{
+        add(Blocks.DIAMOND_ORE);
+        add(Blocks.EMERALD_ORE);
+        add(Blocks.GOLD_ORE);
+        add(Blocks.IRON_ORE);
+        add(Blocks.LAPIS_ORE);
+        add(Blocks.REDSTONE_ORE);
+        add(Blocks.COAL_ORE);
+        add(Blocks.COPPER_ORE);
+        add(Blocks.DEEPSLATE_DIAMOND_ORE);
+        add(Blocks.DEEPSLATE_EMERALD_ORE);
+        add(Blocks.DEEPSLATE_GOLD_ORE);
+        add(Blocks.DEEPSLATE_IRON_ORE);
+        add(Blocks.DEEPSLATE_LAPIS_ORE);
+        add(Blocks.DEEPSLATE_REDSTONE_ORE);
+        add(Blocks.DEEPSLATE_COAL_ORE);
+        add(Blocks.DEEPSLATE_COPPER_ORE);
+    }};
 
     public MineProcess(Baritone baritone) {
         super(baritone);
@@ -188,6 +209,37 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             // can't reassign locs, gotta make a new var locs2, because we use it in a lambda right here, and variables you use in a lambda must be effectively final
             Goal goal = new GoalComposite(locs2.stream().map(loc -> coalesce(loc, locs2, context)).toArray(Goal[]::new));
             knownOreLocations = locs2;
+
+            knownOreLocations.removeIf(pos -> pos.getY() > -20);
+            knownOreLocations.removeIf(pos -> pos.getY() < -58);
+
+            knownOreLocations.removeIf(pos -> {
+                Block blockBelow = baritone.bsi.get0(pos.below()).getBlock();
+                Block blockAbove = baritone.bsi.get0(pos.above()).getBlock();
+
+                Block fiveNorthBlocks = baritone.bsi.get0(pos.offset(0, 0, -4)).getBlock();
+                Block fiveSouthBlocks = baritone.bsi.get0(pos.offset(0, 0, 4)).getBlock();
+                Block fiveEastBlocks = baritone.bsi.get0(pos.offset(4, 0, 0)).getBlock();
+                Block fiveWestBlocks = baritone.bsi.get0(pos.offset(-4, 0, 0)).getBlock();
+                Block twoBelow = baritone.bsi.get0(pos.below(2)).getBlock();
+                Block twoAbove = baritone.bsi.get0(pos.above(2)).getBlock();
+
+                boolean hasDiff = listOres.contains(blockBelow) && !blockBelow.equals(baritone.bsi.get0(pos).getBlock());
+                hasDiff = hasDiff || (listOres.contains(blockAbove) && !blockAbove.equals(baritone.bsi.get0(pos).getBlock()));
+
+                if(
+                        fiveNorthBlocks.equals(baritone.bsi.get0(pos).getBlock())
+                        || fiveSouthBlocks.equals(baritone.bsi.get0(pos).getBlock())
+                        || fiveEastBlocks.equals(baritone.bsi.get0(pos).getBlock())
+                        || fiveWestBlocks.equals(baritone.bsi.get0(pos).getBlock())
+                        || listOres.contains(twoBelow)
+                        || listOres.contains(twoAbove)
+                ) {
+                    return hasDiff;
+                }
+                return false;
+            });
+
             return new PathingCommand(goal, legit ? PathingCommandType.FORCE_REVALIDATE_GOAL_AND_PATH : PathingCommandType.REVALIDATE_GOAL_AND_PATH);
         }
         // we don't know any ore locations at the moment
@@ -348,7 +400,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         for (Entity entity : ((ClientLevel) ctx.world()).entitiesForRendering()) {
             if (entity instanceof ItemEntity) {
                 ItemEntity ei = (ItemEntity) entity;
-                if (filter.has(ei.getItem())) {
+                if (blocksToFind.has(ei.getItem())) {
                     ret.add(entity.blockPosition());
                 }
             }
@@ -400,7 +452,6 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         knownOreLocations.addAll(dropped);
         BlockPos playerFeet = ctx.playerFeet();
         BlockStateInterface bsi = new BlockStateInterface(ctx);
-
 
         BlockOptionalMetaLookup filter = filterFilter();
         if (filter == null) {
@@ -501,6 +552,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
     @Override
     public void mine(int quantity, BlockOptionalMetaLookup filter) {
+        blocksToFind = filter;
         this.filter = filter;
         if (this.filterFilter() == null) {
             this.filter = null;
@@ -512,6 +564,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
+            this.filter = new BlockOptionalMetaLookup(listOres);
             rescan(new ArrayList<>(), new CalculationContext(baritone));
         }
     }
