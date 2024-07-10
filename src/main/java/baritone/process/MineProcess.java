@@ -64,6 +64,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private int desiredQuantity;
     private int tickCount;
     private BlockOptionalMetaLookup blocksToFind;
+    private static final int MAX_BLOB_SIZE = 12;
+    private final Set<BlockPos> visited = new HashSet<>();
     private final LinkedList<Block> listOres = new LinkedList<Block>() {{
         add(Blocks.DIAMOND_ORE);
         add(Blocks.EMERALD_ORE);
@@ -210,34 +212,12 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             Goal goal = new GoalComposite(locs2.stream().map(loc -> coalesce(loc, locs2, context)).toArray(Goal[]::new));
             knownOreLocations = locs2;
 
-            knownOreLocations.removeIf(pos -> pos.getY() > -20);
+            knownOreLocations.removeIf(pos -> pos.getY() > 0);
             knownOreLocations.removeIf(pos -> pos.getY() < -58);
 
             knownOreLocations.removeIf(pos -> {
-                Block blockBelow = baritone.bsi.get0(pos.below()).getBlock();
-                Block blockAbove = baritone.bsi.get0(pos.above()).getBlock();
-
-                Block fiveNorthBlocks = baritone.bsi.get0(pos.offset(0, 0, -4)).getBlock();
-                Block fiveSouthBlocks = baritone.bsi.get0(pos.offset(0, 0, 4)).getBlock();
-                Block fiveEastBlocks = baritone.bsi.get0(pos.offset(4, 0, 0)).getBlock();
-                Block fiveWestBlocks = baritone.bsi.get0(pos.offset(-4, 0, 0)).getBlock();
-                Block twoBelow = baritone.bsi.get0(pos.below(2)).getBlock();
-                Block twoAbove = baritone.bsi.get0(pos.above(2)).getBlock();
-
-                boolean hasDiff = listOres.contains(blockBelow) && !blockBelow.equals(baritone.bsi.get0(pos).getBlock());
-                hasDiff = hasDiff || (listOres.contains(blockAbove) && !blockAbove.equals(baritone.bsi.get0(pos).getBlock()));
-
-                if(
-                        fiveNorthBlocks.equals(baritone.bsi.get0(pos).getBlock())
-                        || fiveSouthBlocks.equals(baritone.bsi.get0(pos).getBlock())
-                        || fiveEastBlocks.equals(baritone.bsi.get0(pos).getBlock())
-                        || fiveWestBlocks.equals(baritone.bsi.get0(pos).getBlock())
-                        || listOres.contains(twoBelow)
-                        || listOres.contains(twoAbove)
-                ) {
-                    return hasDiff;
-                }
-                return false;
+                visited.clear();
+                return countConnectedOres(pos) > MAX_BLOB_SIZE;
             });
 
             return new PathingCommand(goal, legit ? PathingCommandType.FORCE_REVALIDATE_GOAL_AND_PATH : PathingCommandType.REVALIDATE_GOAL_AND_PATH);
@@ -585,5 +565,40 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             return f;
         }
         return filter;
+    }
+
+    private int countConnectedOres(BlockPos startPos) {
+        Stack<BlockPos> toVisit = new Stack<>();
+        toVisit.push(startPos);
+        visited.add(startPos);
+
+        int count = 0;
+
+        while (!toVisit.isEmpty() || count > MAX_BLOB_SIZE) {
+            BlockPos pos = toVisit.pop();
+            count++;
+
+            for (BlockPos neighbor : getNeighbors(pos)) {
+                if (!visited.contains(neighbor) && isOreBlock(neighbor)) {
+                    visited.add(neighbor);
+                    toVisit.push(neighbor);
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private List<BlockPos> getNeighbors(BlockPos pos) {
+        return Arrays.asList(
+                pos.above(), pos.below(),
+                pos.offset(1, 0, 0), pos.offset(-1, 0, 0),
+                pos.offset(0, 0, 1), pos.offset(0, 0, -1)
+        );
+    }
+
+    private boolean isOreBlock(BlockPos pos) {
+        Block block = baritone.bsi.get0(pos).getBlock();
+        return listOres.contains(block);
     }
 }
