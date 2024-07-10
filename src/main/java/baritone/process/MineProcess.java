@@ -574,7 +574,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
         int count = 0;
 
-        while (!toVisit.isEmpty() || count > MAX_BLOB_SIZE) {
+        while (!toVisit.isEmpty() && count <= MAX_BLOB_SIZE) {
+
             BlockPos pos = toVisit.pop();
             count++;
 
