@@ -121,6 +121,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                     logNotification("Unable to find any path to " + filter + ", canceling mine", true);
                 }
                 cancel();
+                mine(0, blocksToFind);
                 return null;
             }
         }
@@ -212,12 +213,21 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             Goal goal = new GoalComposite(locs2.stream().map(loc -> coalesce(loc, locs2, context)).toArray(Goal[]::new));
             knownOreLocations = locs2;
 
-            knownOreLocations.removeIf(pos -> pos.getY() > 0);
-            knownOreLocations.removeIf(pos -> pos.getY() < -58);
+            knownOreLocations.removeIf(pos -> pos.getY() > Baritone.settings().maxYLevelWhileMining.value);
+            knownOreLocations.removeIf(pos -> pos.getY() < Baritone.settings().minYLevelWhileMining.value);
 
             knownOreLocations.removeIf(pos -> {
+                if (blacklist.contains(pos)
+                        || pos.getY() > Baritone.settings().maxYLevelWhileMining.value
+                        || pos.getY() < Baritone.settings().minYLevelWhileMining.value) {
+                    return true;
+                }
                 visited.clear();
-                return countConnectedOres(pos) > MAX_BLOB_SIZE;
+                if (countConnectedOres(pos) > MAX_BLOB_SIZE) {
+                    blacklist.add(pos);
+                    return true;
+                }
+                return false;
             });
 
             return new PathingCommand(goal, legit ? PathingCommandType.FORCE_REVALIDATE_GOAL_AND_PATH : PathingCommandType.REVALIDATE_GOAL_AND_PATH);
@@ -574,7 +584,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
         int count = 0;
 
-        while (!toVisit.isEmpty() && count <= MAX_BLOB_SIZE) {
+        while (!toVisit.isEmpty()) {
 
             BlockPos pos = toVisit.pop();
             count++;
@@ -585,6 +595,21 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                     toVisit.push(neighbor);
                 }
             }
+        }
+
+        if(count < MAX_BLOB_SIZE) {
+            for (BlockPos pos : visited) {
+                LinkedList<Block> blocksToFindList= new LinkedList<>();
+                blocksToFind.blocks().forEach(block -> blocksToFindList.add(block.getBlock()));
+                CalculationContext context = new CalculationContext(baritone);
+                if(isNextToAir(context, pos) && !blocksToFindList.contains(baritone.bsi.get0(pos).getBlock())) {
+                    count = MAX_BLOB_SIZE + 1;
+                }
+            }
+        }
+
+        if(count > MAX_BLOB_SIZE) {
+            blacklist.addAll(visited);
         }
 
         return count;
