@@ -34,7 +34,9 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -61,6 +63,27 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private GoalRunAway branchPointRunaway;
     private int desiredQuantity;
     private int tickCount;
+    private BlockOptionalMetaLookup blocksToFind;
+    private static final int MAX_BLOB_SIZE = 12;
+    private final Set<BlockPos> visited = new HashSet<>();
+    private final LinkedList<Block> listOres = new LinkedList<Block>() {{
+        add(Blocks.DIAMOND_ORE);
+        add(Blocks.EMERALD_ORE);
+        add(Blocks.GOLD_ORE);
+        add(Blocks.IRON_ORE);
+        add(Blocks.LAPIS_ORE);
+        add(Blocks.REDSTONE_ORE);
+        add(Blocks.COAL_ORE);
+        add(Blocks.COPPER_ORE);
+        add(Blocks.DEEPSLATE_DIAMOND_ORE);
+        add(Blocks.DEEPSLATE_EMERALD_ORE);
+        add(Blocks.DEEPSLATE_GOLD_ORE);
+        add(Blocks.DEEPSLATE_IRON_ORE);
+        add(Blocks.DEEPSLATE_LAPIS_ORE);
+        add(Blocks.DEEPSLATE_REDSTONE_ORE);
+        add(Blocks.DEEPSLATE_COAL_ORE);
+        add(Blocks.DEEPSLATE_COPPER_ORE);
+    }};
 
     public MineProcess(Baritone baritone) {
         super(baritone);
@@ -98,6 +121,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                     logNotification("Unable to find any path to " + filter + ", canceling mine", true);
                 }
                 cancel();
+                mine(0, blocksToFind);
                 return null;
             }
         }
@@ -188,6 +212,24 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             // can't reassign locs, gotta make a new var locs2, because we use it in a lambda right here, and variables you use in a lambda must be effectively final
             Goal goal = new GoalComposite(locs2.stream().map(loc -> coalesce(loc, locs2, context)).toArray(Goal[]::new));
             knownOreLocations = locs2;
+
+            knownOreLocations.removeIf(pos -> pos.getY() > Baritone.settings().maxYLevelWhileMining.value);
+            knownOreLocations.removeIf(pos -> pos.getY() < Baritone.settings().minYLevelWhileMining.value);
+
+            knownOreLocations.removeIf(pos -> {
+                if (blacklist.contains(pos)
+                        || pos.getY() > Baritone.settings().maxYLevelWhileMining.value
+                        || pos.getY() < Baritone.settings().minYLevelWhileMining.value) {
+                    return true;
+                }
+                visited.clear();
+                if (countConnectedOres(pos) > MAX_BLOB_SIZE) {
+                    blacklist.add(pos);
+                    return true;
+                }
+                return false;
+            });
+
             return new PathingCommand(goal, legit ? PathingCommandType.FORCE_REVALIDATE_GOAL_AND_PATH : PathingCommandType.REVALIDATE_GOAL_AND_PATH);
         }
         // we don't know any ore locations at the moment
@@ -348,7 +390,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         for (Entity entity : ((ClientLevel) ctx.world()).entitiesForRendering()) {
             if (entity instanceof ItemEntity) {
                 ItemEntity ei = (ItemEntity) entity;
-                if (filter.has(ei.getItem())) {
+                if (blocksToFind.has(ei.getItem())) {
                     ret.add(entity.blockPosition());
                 }
             }
@@ -400,7 +442,6 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         knownOreLocations.addAll(dropped);
         BlockPos playerFeet = ctx.playerFeet();
         BlockStateInterface bsi = new BlockStateInterface(ctx);
-
 
         BlockOptionalMetaLookup filter = filterFilter();
         if (filter == null) {
@@ -501,6 +542,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
     @Override
     public void mine(int quantity, BlockOptionalMetaLookup filter) {
+        blocksToFind = filter;
         this.filter = filter;
         if (this.filterFilter() == null) {
             this.filter = null;
@@ -512,6 +554,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
+            this.filter = new BlockOptionalMetaLookup(listOres);
             rescan(new ArrayList<>(), new CalculationContext(baritone));
         }
     }
@@ -532,5 +575,56 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             return f;
         }
         return filter;
+    }
+
+    private int countConnectedOres(BlockPos startPos) {
+        Stack<BlockPos> toVisit = new Stack<>();
+        toVisit.push(startPos);
+        visited.add(startPos);
+
+        int count = 0;
+
+        while (!toVisit.isEmpty()) {
+
+            BlockPos pos = toVisit.pop();
+            count++;
+
+            for (BlockPos neighbor : getNeighbors(pos)) {
+                if (!visited.contains(neighbor) && isOreBlock(neighbor)) {
+                    visited.add(neighbor);
+                    toVisit.push(neighbor);
+                }
+            }
+        }
+
+        if(count < MAX_BLOB_SIZE) {
+            for (BlockPos pos : visited) {
+                LinkedList<Block> blocksToFindList= new LinkedList<>();
+                blocksToFind.blocks().forEach(block -> blocksToFindList.add(block.getBlock()));
+                CalculationContext context = new CalculationContext(baritone);
+                if(isNextToAir(context, pos) && !blocksToFindList.contains(baritone.bsi.get0(pos).getBlock())) {
+                    count = MAX_BLOB_SIZE + 1;
+                }
+            }
+        }
+
+        if(count > MAX_BLOB_SIZE) {
+            blacklist.addAll(visited);
+        }
+
+        return count;
+    }
+
+    private List<BlockPos> getNeighbors(BlockPos pos) {
+        return Arrays.asList(
+                pos.above(), pos.below(),
+                pos.offset(1, 0, 0), pos.offset(-1, 0, 0),
+                pos.offset(0, 0, 1), pos.offset(0, 0, -1)
+        );
+    }
+
+    private boolean isOreBlock(BlockPos pos) {
+        Block block = baritone.bsi.get0(pos).getBlock();
+        return listOres.contains(block);
     }
 }
