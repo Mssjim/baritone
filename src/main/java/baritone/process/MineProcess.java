@@ -30,6 +30,7 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BaritoneProcessHelper;
 import baritone.utils.BlockStateInterface;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -65,7 +66,6 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private int tickCount;
     private BlockOptionalMetaLookup blocksToFind;
     private static final int MAX_BLOB_SIZE = 12;
-    private final Set<BlockPos> visited = new HashSet<>();
     private final LinkedList<Block> listOres = new LinkedList<Block>() {{
         add(Blocks.DIAMOND_ORE);
         add(Blocks.EMERALD_ORE);
@@ -109,17 +109,17 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         }
         if (calcFailed) {
             if (!knownOreLocations.isEmpty() && Baritone.settings().blacklistClosestOnFailure.value) {
-                logDirect("Unable to find any path to " + filter + ", blacklisting presumably unreachable closest instance...");
+                logDirect("Unable to find any path (Ta preso), blacklisting presumably unreachable closest instance...");
                 if (Baritone.settings().notificationOnMineFail.value) {
-                    logNotification("Unable to find any path to " + filter + ", blacklisting presumably unreachable closest instance...", true);
+                    logNotification("Unable to find any path (Ta preso), blacklisting presumably unreachable closest instance...", true);
                 }
                 knownOreLocations.stream().min(Comparator.comparingDouble(ctx.playerFeet()::distSqr)).ifPresent(blacklist::add);
                 knownOreLocations.removeIf(blacklist::contains);
             } else {
-                logDirect("Unable to find any path to " + filter + ", canceling mine");
+                logDirect("Unable to find any path (Ta preso), canceling mine");
                 if (Baritone.settings().notificationOnMineFail.value) {
-                    logNotification("Unable to find any path to " + filter + ", canceling mine", true);
-                }
+                    logNotification("Unable to find any path (Ta preso), canceling mine", true);
+                } // TODO Alteração do log
                 cancel();
                 mine(0, blocksToFind);
                 return null;
@@ -213,18 +213,25 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             Goal goal = new GoalComposite(locs2.stream().map(loc -> coalesce(loc, locs2, context)).toArray(Goal[]::new));
             knownOreLocations = locs2;
 
-            knownOreLocations.removeIf(pos -> pos.getY() > Baritone.settings().maxYLevelWhileMining.value);
-            knownOreLocations.removeIf(pos -> pos.getY() < Baritone.settings().minYLevelWhileMining.value);
-
             knownOreLocations.removeIf(pos -> {
-                if (blacklist.contains(pos)
-                        || pos.getY() > Baritone.settings().maxYLevelWhileMining.value
-                        || pos.getY() < Baritone.settings().minYLevelWhileMining.value) {
+                if (blacklist.contains(pos))
+                    return true;
+
+                if (pos.getY() > Baritone.settings().maxYLevelWhileMining.value) {
+                    blacklist.add(pos);
+                    logDirect("Block " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " removido pois está acima do maxYLevelWhileMining");
                     return true;
                 }
-                visited.clear();
+                if (pos.getY() < Baritone.settings().minYLevelWhileMining.value) {
+                    blacklist.add(pos);
+                    logDirect("Block " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " removido pois está abaixo do minYLevelWhileMining");
+                    return true;
+                }
+
+                // visited.clear(); // Removido para teste
                 if (countConnectedOres(pos) > MAX_BLOB_SIZE) {
                     blacklist.add(pos);
+                    logDirect("Block " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " removido pois está em um blob muito grande");
                     return true;
                 }
                 return false;
@@ -282,7 +289,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             if (Baritone.settings().notificationOnMineFail.value) {
                 logNotification("No locations for " + filter + " known, cancelling", true);
             }
-            cancel();
+            //this.baritone.getPlayerContext().player().connection.sendCommand("home l");
+            // cancel(); // TODO Teste para verificar
             return;
         }
         knownOreLocations = locs;
@@ -549,7 +557,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         }
         this.desiredQuantity = quantity;
         this.knownOreLocations = new ArrayList<>();
-        this.blacklist = new ArrayList<>();
+        this.blacklist = new ArrayList<>(); // TODO Remover para continuar com a blacklist antiga
         this.branchPoint = null;
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
@@ -580,6 +588,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private int countConnectedOres(BlockPos startPos) {
         Stack<BlockPos> toVisit = new Stack<>();
         toVisit.push(startPos);
+        Set<BlockPos> visited = new HashSet<>();
         visited.add(startPos);
 
         int count = 0;
@@ -597,6 +606,7 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             }
         }
 
+        // Ignorar os Blobs de minerios inválidos
         if(count < MAX_BLOB_SIZE) {
             for (BlockPos pos : visited) {
                 LinkedList<Block> blocksToFindList= new LinkedList<>();
