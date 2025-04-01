@@ -612,8 +612,8 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                 LinkedList<Block> blocksToFindList= new LinkedList<>();
                 blocksToFind.blocks().forEach(block -> blocksToFindList.add(block.getBlock()));
                 CalculationContext context = new CalculationContext(baritone);
-                if(isNextToAir(context, pos) && !blocksToFindList.contains(baritone.bsi.get0(pos).getBlock())) {
-                    count = MAX_BLOB_SIZE + 1;
+                if(isNextToAir(context, pos) && !blocksToFindList.contains(baritone.bsi.get0(pos).getBlock()) && listOres.contains(baritone.bsi.get0(pos).getBlock())) {
+                    count = 777;
                 }
             }
         }
