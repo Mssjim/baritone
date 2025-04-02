@@ -87,6 +87,70 @@ public final class GameEventHandler implements IEventBus, Helper {
                 baritone.getPlayerContext().player().connection.sendChat(".macro hub");
             }
 
+            int freeSlots = 0;
+            if(tickCounter % (20 * DELAY_DROP_SECONDS) == 0 && !Arrays.equals(coords, serversCoords) && !Arrays.equals(coords, hubCoords) && !Arrays.equals(coords, spawnCoords)) {
+                String[] itemsToDrop = new String[] {
+                        "minecraft:dirt",
+                        "minecraft:cobblestone",
+                        "minecraft:gravel",
+                        "minecraft:sand",
+                        "minecraft:andesite",
+                        "minecraft:diorite",
+                        "minecraft:granite",
+                        "minecraft:stone",
+                        "minecraft:brown_mushroom",
+                        "minecraft:red_mushroom",
+                        "minecraft:flint",
+                        "minecraft:obsidian",
+                        "minecraft:coal",
+                        "minecraft:torch",
+                        "minecraft:mossy_cobblestone",
+                        "minecraft:farmland",
+                        "minecraft:grass_block",
+                        "minecraft:rail",
+                        "minecraft:clay",
+                        "minecraft:clay_ball",
+                        "minecraft:redstone",
+                        "minecraft:tuff",
+                        "minecraft:deepslate",
+                        "minecraft:dripstone_block",
+                        "minecraft:raw_copper",
+                        "minecraft:pointed_dripstone",
+                        "minecraft:coarse_dirt",
+                        "minecraft:rotten_flesh",
+                        "minecraft:gunpowder",
+                        "minecraft:bone_block",
+                        "minecraft:bone",
+                        "minecraft:amethyst_block",
+                        "minecraft:calcite",
+                        "minecraft:smooth_basalt",
+                        "minecraft:string",
+                        "minecraft:amethyst_shard",
+                        "minecraft:arrow",
+                        "minecraft:diamond_horse_armor",
+                        "minecraft:carrot",
+                        "minecraft:magma_block",
+                        "minecraft:spider_eye"
+                };
+
+                boolean dropou = false;
+
+                for(int i = 9; i <= 35; i++) {
+                    String itemName = baritone.getPlayerContext().player().getInventory().getItem(i).toString();
+                    itemName = itemName.substring(itemName.indexOf(" ") + 1);
+                    int itemQuantity = baritone.getPlayerContext().player().getInventory().getItem(i).getCount();
+
+                    if(itemName.equals("minecraft:air")) {
+                        freeSlots++;
+                    } else {
+                        if(Arrays.asList(itemsToDrop).contains(itemName) && !dropou) {
+                            logDirect("["+i+"] Dropando " + itemName + " x" + itemQuantity);
+                            baritone.getPlayerContext().player().connection.sendChat(".drop " + itemName);
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         listeners.forEach(l -> l.onTick(event));
