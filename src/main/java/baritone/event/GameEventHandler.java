@@ -27,11 +27,14 @@ import baritone.api.utils.Pair;
 import baritone.cache.CachedChunk;
 import baritone.cache.WorldProvider;
 import baritone.utils.BlockStateInterface;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -49,6 +52,7 @@ public final class GameEventHandler implements IEventBus, Helper {
         this.baritone = baritone;
     }
 
+    private int tickCounter = 0;
     @Override
     public final void onTick(TickEvent event) {
         if (event.getType() == TickEvent.Type.IN) {
@@ -61,6 +65,30 @@ public final class GameEventHandler implements IEventBus, Helper {
         } else {
             baritone.bsi = null;
         }
+        tickCounter++;
+
+        int DELAY_SECONDS = 3;
+        if (tickCounter % (20 * DELAY_SECONDS) == 0 && baritone.getPlayerContext().player() != null) {
+            // Tentativa macros
+            double[] serversCoords = new double[] { 0.5, 20, 0.5 };
+            double[] hubCoords = new double[] { 0.5, 20, -999.5 };
+            double[] spawnCoords = new double[] { 403.5, 65, 257.5 };
+            double[] coords = new double[] { baritone.getPlayerContext().player().getX(), baritone.getPlayerContext().player().getY(), baritone.getPlayerContext().player().getZ() };
+
+            // Auto Login
+            if(Arrays.equals(coords, hubCoords)) {
+                logDirect("No hub, tentando logar");
+                baritone.getPlayerContext().player().connection.sendChat(".macro login");
+            } else if(Arrays.equals(coords, spawnCoords)) {
+                logDirect("No spawn, tentando minar");
+                baritone.getPlayerContext().player().connection.sendChat(".macro home");
+            } else if(Arrays.equals(coords, serversCoords)) {
+                logDirect("No Hub de Servers, tentando selecionar Survival");
+                baritone.getPlayerContext().player().connection.sendChat(".macro hub");
+            }
+
+        }
+
         listeners.forEach(l -> l.onTick(event));
     }
 
