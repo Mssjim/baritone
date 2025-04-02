@@ -150,6 +150,13 @@ public final class GameEventHandler implements IEventBus, Helper {
                         }
                     }
                 }
+
+                if(freeSlots < 3) {
+                    logDirect("Inventário cheio, voltando para casa");
+                    baritone.getPlayerContext().player().connection.sendChat(".macro home");
+                }
+            }
+
             }
         }
 
