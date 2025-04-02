@@ -30,14 +30,11 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BaritoneProcessHelper;
 import baritone.utils.BlockStateInterface;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -109,9 +106,9 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         }
         if (calcFailed) {
             if (!knownOreLocations.isEmpty() && Baritone.settings().blacklistClosestOnFailure.value) {
-                logDirect("Unable to find any path (Ta preso), blacklisting presumably unreachable closest instance...");
+                logDirect("Unable to find any path (Ta preso 1), blacklisting presumably unreachable closest instance...");
                 if (Baritone.settings().notificationOnMineFail.value) {
-                    logNotification("Unable to find any path (Ta preso), blacklisting presumably unreachable closest instance...", true);
+                    logNotification("Unable to find any path (Ta preso 1), blacklisting presumably unreachable closest instance...", true);
                 }
                 knownOreLocations.stream().min(Comparator.comparingDouble(ctx.playerFeet()::distSqr)).ifPresent(blacklist::add);
                 knownOreLocations.removeIf(blacklist::contains);
@@ -288,9 +285,12 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             logDirect("No locations for " + filter + " known, cancelling");
             if (Baritone.settings().notificationOnMineFail.value) {
                 logNotification("No locations for " + filter + " known, cancelling", true);
+//                logNotification("Retornando a Home l");
             }
-            //this.baritone.getPlayerContext().player().connection.sendCommand("home l");
-            // cancel(); // TODO Teste para verificar
+//            if(this.baritone.getPlayerContext().player() != null) {
+//                this.baritone.getPlayerContext().player().connection.sendCommand("home l");
+//            }
+            cancel(); // TODO Teste para verificar
             return;
         }
         knownOreLocations = locs;
@@ -563,7 +563,13 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
             this.filter = new BlockOptionalMetaLookup(listOres);
-            rescan(new ArrayList<>(), new CalculationContext(baritone));
+            logDirect("Minerando...");
+            if (ctx.playerFeet().getY() > 64) {
+                logDirect("Player acima do level do mar, indo para o level " + Baritone.settings().maxYLevelWhileMining.value);
+                this.baritone.getPlayerContext().player().connection.sendChat(".bgoto " + Baritone.settings().maxYLevelWhileMining.value);
+            } else {
+                rescan(new ArrayList<>(), new CalculationContext(baritone));
+            }
         }
     }
 
