@@ -562,11 +562,12 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
+
             this.filter = new BlockOptionalMetaLookup(listOres);
             logDirect("Minerando...");
-            if (ctx.playerFeet().getY() > 64) {
-                logDirect("Player acima do level do mar, indo para o level " + Baritone.settings().maxYLevelWhileMining.value);
-                this.baritone.getPlayerContext().player().connection.sendChat(".bgoto " + Baritone.settings().maxYLevelWhileMining.value);
+            if (ctx.playerFeet().getY() > 64) { // TODO Buga pois ele tenta minerar antes de chegar no mundo recursos
+                //logDirect("Player acima do level do mar, indo para o level " + Baritone.settings().maxYLevelWhileMining.value);
+                //this.baritone.getPlayerContext().player().connection.sendChat(".bgoto " + Baritone.settings().maxYLevelWhileMining.value);
             } else {
                 rescan(new ArrayList<>(), new CalculationContext(baritone));
             }
@@ -623,11 +624,9 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                 }
             }
         }
-
         if(count > MAX_BLOB_SIZE) {
             blacklist.addAll(visited);
         }
-
         return count;
     }
 
