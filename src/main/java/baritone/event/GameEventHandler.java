@@ -53,6 +53,8 @@ public final class GameEventHandler implements IEventBus, Helper {
     }
 
     private int tickCounter = 0;
+    private double[] lastPos = new double[] { 0, 0, 0 };
+
     @Override
     public final void onTick(TickEvent event) {
         if (event.getType() == TickEvent.Type.IN) {
@@ -68,6 +70,8 @@ public final class GameEventHandler implements IEventBus, Helper {
         tickCounter++;
 
         int DELAY_SECONDS = 3;
+        int DELAY_DROP_SECONDS = DELAY_SECONDS*3;
+        int DELAY_SAMEPOS = DELAY_SECONDS*5;
         if (tickCounter % (20 * DELAY_SECONDS) == 0 && baritone.getPlayerContext().player() != null) {
             // Tentativa macros
             double[] serversCoords = new double[] { 0.5, 20, 0.5 };
@@ -157,6 +161,12 @@ public final class GameEventHandler implements IEventBus, Helper {
                 }
             }
 
+            if(tickCounter % (20 * DELAY_SAMEPOS) == 0) {
+                if(Arrays.equals(coords, lastPos)) {
+                    logDirect("Player parado por " + DELAY_SAMEPOS + " segundos. Voltando para casa");
+                    baritone.getPlayerContext().player().connection.sendChat(".macro home");
+                }
+                lastPos = coords;
             }
         }
 
