@@ -27,6 +27,8 @@ import baritone.api.utils.Pair;
 import baritone.cache.CachedChunk;
 import baritone.cache.WorldProvider;
 import baritone.utils.BlockStateInterface;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
@@ -52,8 +54,76 @@ public final class GameEventHandler implements IEventBus, Helper {
         this.baritone = baritone;
     }
 
-    private int tickCounter = 0;
+    private int tickCounter = 1;
     private double[] lastPos = new double[] { 0, 0, 0 };
+
+    private static final String[] itemsToDrop = new String[] {
+            "minecraft:dirt",
+            "minecraft:cobblestone",
+            "minecraft:gravel",
+            "minecraft:sand",
+            "minecraft:andesite",
+            "minecraft:diorite",
+            "minecraft:granite",
+            "minecraft:stone",
+            "minecraft:brown_mushroom",
+            "minecraft:red_mushroom",
+            "minecraft:flint",
+            "minecraft:obsidian",
+            "minecraft:coal",
+            "minecraft:torch",
+            "minecraft:mossy_cobblestone",
+            "minecraft:farmland",
+            "minecraft:grass_block",
+            "minecraft:rail",
+            "minecraft:clay",
+            "minecraft:clay_ball",
+            "minecraft:redstone",
+            "minecraft:tuff",
+            "minecraft:deepslate",
+            "minecraft:dripstone_block",
+            "minecraft:raw_copper",
+            "minecraft:pointed_dripstone",
+            "minecraft:coarse_dirt",
+            "minecraft:rotten_flesh",
+            "minecraft:gunpowder",
+            "minecraft:bone_block",
+            "minecraft:bone",
+            "minecraft:amethyst_block",
+            "minecraft:calcite",
+            "minecraft:smooth_basalt",
+            "minecraft:string",
+            "minecraft:amethyst_shard",
+            "minecraft:arrow",
+            "minecraft:diamond_horse_armor",
+            "minecraft:carrot",
+            "minecraft:magma_block",
+            "minecraft:spider_eye"
+    };
+
+    static double[] worldSpawnCoords = new double[] { 0, 0, 0 };
+
+    public static String getWorldName() {
+        double[] lobbyWorldCoords = new double[] { 0, 20, 0 };
+        double[] hubWorldCoords = new double[] { 0, 184, 155 };
+        double[] spawnWorldCoords = new double[] { 403, 65, 257 };
+        double[] survivalWorldCoords = new double[] { 0, 95, 0 };
+        double[] recursosWorldCoords = new double[] { 0, 68, 0 };
+
+        if(Arrays.equals(worldSpawnCoords, lobbyWorldCoords)) {
+            return "lobby";
+        } else if(Arrays.equals(worldSpawnCoords, hubWorldCoords)) {
+            return "hub";
+        } else if(Arrays.equals(worldSpawnCoords, spawnWorldCoords)) {
+            return "spawn";
+        } else if(Arrays.equals(worldSpawnCoords, survivalWorldCoords)) {
+            return "survival";
+        } else if(Arrays.equals(worldSpawnCoords, recursosWorldCoords)) {
+            return "recursos";
+        } else {
+            return "unknown";
+        }
+    }
 
     @Override
     public final void onTick(TickEvent event) {
@@ -67,76 +137,40 @@ public final class GameEventHandler implements IEventBus, Helper {
         } else {
             baritone.bsi = null;
         }
+
+        // Todos devem ser multiplos do "DELAY_SECONDS"
+        int DELAY_SECONDS = 5;
+        int DELAY_DROP_SECONDS = 10;
+        int DELAY_SAMEPOS_SECONDS = 30;
         tickCounter++;
 
-        int DELAY_SECONDS = 3;
-        int DELAY_DROP_SECONDS = DELAY_SECONDS*3;
-        int DELAY_SAMEPOS = DELAY_SECONDS*5;
-        if (tickCounter % (20 * DELAY_SECONDS) == 0 && baritone.getPlayerContext().player() != null) {
-            // Tentativa macros
-            double[] serversCoords = new double[] { 0.5, 20, 0.5 };
-            double[] hubCoords = new double[] { 0.5, 20, -999.5 };
+        if (tickCounter % (20 * DELAY_SECONDS) == 0 && baritone.getPlayerContext().player() != null && Baritone.settings().tickMacros.value) { // Macros
+            LocalPlayer player = baritone.getPlayerContext().player();
+            BlockPos worldSpawnPos = baritone.getPlayerContext().world().getLevelData().getSpawnPos();
+
+            double[] lobbyCoords = new double[] { 0.5, 20, -999.5 };
+            double[] hubCoords = new double[] { 0.5, 20, 0.5 };
             double[] spawnCoords = new double[] { 403.5, 65, 257.5 };
-            double[] coords = new double[] { baritone.getPlayerContext().player().getX(), baritone.getPlayerContext().player().getY(), baritone.getPlayerContext().player().getZ() };
+
+            double[] coords = new double[] { player.getX(), player.getY(), player.getZ() };
+            worldSpawnCoords = new double[] { worldSpawnPos.getX(), worldSpawnPos.getY(), worldSpawnPos.getZ() };
+
+            logDirect("[" + String.format("%010d", tickCounter) + "] " + getWorldName());
 
             // Auto Login
-            if(Arrays.equals(coords, hubCoords)) {
-                logDirect("No hub, tentando logar");
+            if(getWorldName().equals("lobby")) {
+                logDirect("No Lobby, tentando logar");
                 baritone.getPlayerContext().player().connection.sendChat(".macro login");
+            } else if(getWorldName().equals("hub")) {
+                logDirect("No Hub, tentando entrar");
+                baritone.getPlayerContext().player().connection.sendChat(".macro hub");
             } else if(Arrays.equals(coords, spawnCoords)) {
                 logDirect("No spawn, tentando minar");
                 baritone.getPlayerContext().player().connection.sendChat(".macro home");
-            } else if(Arrays.equals(coords, serversCoords)) {
-                logDirect("No Hub de Servers, tentando selecionar Survival");
-                baritone.getPlayerContext().player().connection.sendChat(".macro hub");
             }
 
-            if(tickCounter % (20 * DELAY_DROP_SECONDS) == 0 && !Arrays.equals(coords, serversCoords) && !Arrays.equals(coords, hubCoords) && !Arrays.equals(coords, spawnCoords)) {
+            if(tickCounter % (20 * DELAY_DROP_SECONDS) == 0 && getWorldName().equals("recursos")) {
                 int freeSlots = 0;
-                String[] itemsToDrop = new String[] {
-                        "minecraft:dirt",
-                        "minecraft:cobblestone",
-                        "minecraft:gravel",
-                        "minecraft:sand",
-                        "minecraft:andesite",
-                        "minecraft:diorite",
-                        "minecraft:granite",
-                        "minecraft:stone",
-                        "minecraft:brown_mushroom",
-                        "minecraft:red_mushroom",
-                        "minecraft:flint",
-                        "minecraft:obsidian",
-                        "minecraft:coal",
-                        "minecraft:torch",
-                        "minecraft:mossy_cobblestone",
-                        "minecraft:farmland",
-                        "minecraft:grass_block",
-                        "minecraft:rail",
-                        "minecraft:clay",
-                        "minecraft:clay_ball",
-                        "minecraft:redstone",
-                        "minecraft:tuff",
-                        "minecraft:deepslate",
-                        "minecraft:dripstone_block",
-                        "minecraft:raw_copper",
-                        "minecraft:pointed_dripstone",
-                        "minecraft:coarse_dirt",
-                        "minecraft:rotten_flesh",
-                        "minecraft:gunpowder",
-                        "minecraft:bone_block",
-                        "minecraft:bone",
-                        "minecraft:amethyst_block",
-                        "minecraft:calcite",
-                        "minecraft:smooth_basalt",
-                        "minecraft:string",
-                        "minecraft:amethyst_shard",
-                        "minecraft:arrow",
-                        "minecraft:diamond_horse_armor",
-                        "minecraft:carrot",
-                        "minecraft:magma_block",
-                        "minecraft:spider_eye"
-                };
-
                 boolean dropou = false;
 
                 for(int i = 9; i <= 35; i++) {
@@ -161,9 +195,9 @@ public final class GameEventHandler implements IEventBus, Helper {
                 }
             }
 
-            if(tickCounter % (20 * DELAY_SAMEPOS) == 0 && !Arrays.equals(coords, serversCoords) && !Arrays.equals(coords, hubCoords)) {
+            if(tickCounter % (20 * DELAY_SAMEPOS_SECONDS) == 0 && !getWorldName().equals("lobby") && !getWorldName().equals("hub")) {
                 if(Arrays.equals(coords, lastPos)) {
-                    logDirect("Player parado por " + DELAY_SAMEPOS + " segundos. Voltando para casa");
+                    logDirect("Player parado por " + DELAY_SAMEPOS_SECONDS + " segundos. Voltando para casa");
                     baritone.getPlayerContext().player().connection.sendChat(".macro home");
                 }
                 lastPos = coords;
