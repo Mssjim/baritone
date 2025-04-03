@@ -216,19 +216,17 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
                 if (pos.getY() > Baritone.settings().maxYLevelWhileMining.value) {
                     blacklist.add(pos);
-                    logDirect("Block " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " removido pois está acima do maxYLevelWhileMining");
                     return true;
                 }
                 if (pos.getY() < Baritone.settings().minYLevelWhileMining.value) {
                     blacklist.add(pos);
-                    logDirect("Block " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " removido pois está abaixo do minYLevelWhileMining");
                     return true;
                 }
 
                 // visited.clear(); // Removido para teste
+                // TODO Armazenar os blocos visitados para não ter que calcular novamente
                 if (countConnectedOres(pos) > MAX_BLOB_SIZE) {
                     blacklist.add(pos);
-                    logDirect("Block " + pos.getX() + " " + pos.getY() + " " + pos.getZ() + " removido pois está em um blob muito grande");
                     return true;
                 }
                 return false;
