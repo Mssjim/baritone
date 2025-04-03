@@ -91,8 +91,8 @@ public final class GameEventHandler implements IEventBus, Helper {
                 baritone.getPlayerContext().player().connection.sendChat(".macro hub");
             }
 
-            int freeSlots = 0;
             if(tickCounter % (20 * DELAY_DROP_SECONDS) == 0 && !Arrays.equals(coords, serversCoords) && !Arrays.equals(coords, hubCoords) && !Arrays.equals(coords, spawnCoords)) {
+                int freeSlots = 0;
                 String[] itemsToDrop = new String[] {
                         "minecraft:dirt",
                         "minecraft:cobblestone",
