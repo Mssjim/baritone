@@ -161,7 +161,7 @@ public final class GameEventHandler implements IEventBus, Helper {
                 }
             }
 
-            if(tickCounter % (20 * DELAY_SAMEPOS) == 0) {
+            if(tickCounter % (20 * DELAY_SAMEPOS) == 0 && !Arrays.equals(coords, serversCoords) && !Arrays.equals(coords, hubCoords)) {
                 if(Arrays.equals(coords, lastPos)) {
                     logDirect("Player parado por " + DELAY_SAMEPOS + " segundos. Voltando para casa");
                     baritone.getPlayerContext().player().connection.sendChat(".macro home");
