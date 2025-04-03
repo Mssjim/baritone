@@ -148,9 +148,9 @@ public final class GameEventHandler implements IEventBus, Helper {
                         freeSlots++;
                     } else {
                         if(Arrays.asList(itemsToDrop).contains(itemName) && !dropou) {
+                            dropou = true;
                             logDirect("["+i+"] Dropando " + itemName + " x" + itemQuantity);
                             baritone.getPlayerContext().player().connection.sendChat(".drop " + itemName);
-                            break;
                         }
                     }
                 }
