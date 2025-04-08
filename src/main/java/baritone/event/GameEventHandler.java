@@ -196,8 +196,13 @@ public final class GameEventHandler implements IEventBus, Helper {
             }
 
             if(tickCounter % (20 * DELAY_SAMEPOS_SECONDS) == 0 && !getWorldName().equals("lobby") && !getWorldName().equals("hub")) {
-                if(Arrays.equals(coords, lastPos)) {
+                // Conferir se o X e Z sao iguais, ignorar o Y)
+                if(coords[0] == lastPos[0] && coords[2] == lastPos[2]) {
                     logDirect("Player parado por " + DELAY_SAMEPOS_SECONDS + " segundos. Voltando para casa");
+                    baritone.getPlayerContext().player().connection.sendChat(".macro home");
+                    // Conferir se o range é menor que 5 blocos
+                } else if(Math.abs(coords[0] - lastPos[0]) < 5 && Math.abs(coords[2] - lastPos[2]) < 5 && getWorldName().equals("recursos")) {
+                    logDirect("Minerando em circulo por " + DELAY_SAMEPOS_SECONDS + " segundos. Voltando para casa");
                     baritone.getPlayerContext().player().connection.sendChat(".macro home");
                 }
                 lastPos = coords;
