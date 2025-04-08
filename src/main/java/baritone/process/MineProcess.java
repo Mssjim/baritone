@@ -26,6 +26,7 @@ import baritone.api.process.PathingCommandType;
 import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.cache.CachedChunk;
+import baritone.event.GameEventHandler;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BaritoneProcessHelper;
@@ -118,7 +119,9 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
                     logNotification("Unable to find any path (Ta preso), canceling mine", true);
                 } // TODO Alteração do log
                 cancel();
-                mine(0, blocksToFind);
+                if(Baritone.settings().sparklyMine.value) {
+                    mine(0, blocksToFind);
+                }
                 return null;
             }
         }
@@ -211,6 +214,9 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             knownOreLocations = locs2;
 
             knownOreLocations.removeIf(pos -> {
+                if(!Baritone.settings().sparklyMine.value) {
+                    return false;
+                }
                 if (blacklist.contains(pos))
                     return true;
 
@@ -396,7 +402,11 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         for (Entity entity : ((ClientLevel) ctx.world()).entitiesForRendering()) {
             if (entity instanceof ItemEntity) {
                 ItemEntity ei = (ItemEntity) entity;
-                if (blocksToFind.has(ei.getItem())) {
+                if(Baritone.settings().sparklyMine.value) {
+                    if (blocksToFind.has(ei.getItem())) {
+                        ret.add(entity.blockPosition());
+                    }
+                } else if (filter.has(ei.getItem())) {
                     ret.add(entity.blockPosition());
                 }
             }
@@ -560,12 +570,15 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
-
-            this.filter = new BlockOptionalMetaLookup(listOres);
             logDirect("Minerando...");
-            if (ctx.playerFeet().getY() > 64) { // TODO Buga pois ele tenta minerar antes de chegar no mundo recursos
-                //logDirect("Player acima do level do mar, indo para o level " + Baritone.settings().maxYLevelWhileMining.value);
-                //this.baritone.getPlayerContext().player().connection.sendChat(".bgoto " + Baritone.settings().maxYLevelWhileMining.value);
+            if(Baritone.settings().sparklyMine.value) {
+                this.filter = new BlockOptionalMetaLookup(listOres);
+                if (ctx.playerFeet().getY() > Baritone.settings().maxYLevelWhileMining.value && GameEventHandler.getWorldName().equals("recursos")) {
+                    logDirect("Player acima do level "+ Baritone.settings().maxYLevelWhileMining.value + "descendendo");
+                    this.baritone.getPlayerContext().player().connection.sendChat(".bgoto " + Baritone.settings().maxYLevelWhileMining.value);
+                } else {
+                    rescan(new ArrayList<>(), new CalculationContext(baritone));
+                }
             } else {
                 rescan(new ArrayList<>(), new CalculationContext(baritone));
             }

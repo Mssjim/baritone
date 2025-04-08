@@ -109,8 +109,8 @@ public final class CustomGoalProcess extends BaritoneProcessHelper implements IC
                     }
                     if (Baritone.settings().notificationOnPathComplete.value) {
                         logNotification("Pathing complete", false);
-                        if(mostRecentGoal().toString().contains(Baritone.settings().maxYLevelWhileMining.value.toString())){
-                            logDirect("Chegou ao level " + Baritone.settings().maxYLevelWhileMining.value.toString() + "!");
+                        if(mostRecentGoal().toString().contains(Baritone.settings().maxYLevelWhileMining.value.toString()) && Baritone.settings().sparklyMine.value){
+                            logDirect("Chegou ao level " + Baritone.settings().maxYLevelWhileMining.value + "!");
                             this.baritone.getPlayerContext().player().connection.sendChat(".bmine deepslate_diamond_ore deepslate_gold_ore deepslate_lapis_ore");
                         }
                     }
