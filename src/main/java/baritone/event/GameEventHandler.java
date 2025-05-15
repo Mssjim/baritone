@@ -98,7 +98,20 @@ public final class GameEventHandler implements IEventBus, Helper {
             "minecraft:diamond_horse_armor",
             "minecraft:carrot",
             "minecraft:magma_block",
-            "minecraft:spider_eye"
+            "minecraft:spider_eye",
+            "minecraft:tag",
+            "minecraft:oak_sapling",
+            "minecraft:spruce_sapling",
+            "minecraft:birch_sapling",
+            "minecraft:jungle_sapling",
+            "minecraft:acacia_sapling",
+            "minecraft:dark_oak_sapling",
+            "minecraft:waxed_copper_block",
+            "minecraft:waxed_oxidized_copper",
+            "minecraft:chiseled_tuff_bricks",
+            "minecraft:gold_nugget",
+            "minecraft:blaze_rod",
+            "minecraft:sandstone"
     };
 
     static double[] worldSpawnCoords = new double[] { 0, 0, 0 };
@@ -197,11 +210,12 @@ public final class GameEventHandler implements IEventBus, Helper {
 
             if(tickCounter % (20 * DELAY_SAMEPOS_SECONDS) == 0 && !getWorldName().equals("lobby") && !getWorldName().equals("hub")) {
                 // Conferir se o X e Z sao iguais, ignorar o Y)
-                if(coords[0] == lastPos[0] && coords[2] == lastPos[2]) {
+                if(coords[0] == lastPos[0] && coords[2] == lastPos[2] && coords[1] == lastPos[1]) {
                     logDirect("Player parado por " + DELAY_SAMEPOS_SECONDS + " segundos. Voltando para casa");
                     baritone.getPlayerContext().player().connection.sendChat(".macro home");
                     // Conferir se o range é menor que 5 blocos
-                } else if(Math.abs(coords[0] - lastPos[0]) < 5 && Math.abs(coords[2] - lastPos[2]) < 5 && getWorldName().equals("recursos")) {
+                } else if(Math.abs(coords[0] - lastPos[0]) < 5 && Math.abs(coords[2] - lastPos[2]) < 5
+                        && Math.abs(coords[1] - lastPos[1]) < 5 && getWorldName().equals("recursos")) {
                     logDirect("Minerando em circulo por " + DELAY_SAMEPOS_SECONDS + " segundos. Voltando para casa");
                     baritone.getPlayerContext().player().connection.sendChat(".macro home");
                 }
