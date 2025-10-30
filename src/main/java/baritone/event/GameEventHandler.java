@@ -26,6 +26,7 @@ import baritone.api.utils.Helper;
 import baritone.api.utils.Pair;
 import baritone.cache.CachedChunk;
 import baritone.cache.WorldProvider;
+import baritone.process.MineProcess;
 import baritone.utils.BlockStateInterface;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -56,6 +57,7 @@ public final class GameEventHandler implements IEventBus, Helper {
 
     private int tickCounter = 1;
     private double[] lastPos = new double[] { 0, 0, 0 };
+    public static boolean willMine = false;
 
     private static final String[] itemsToDrop = new String[] {
             "minecraft:dirt",
@@ -111,7 +113,18 @@ public final class GameEventHandler implements IEventBus, Helper {
             "minecraft:chiseled_tuff_bricks",
             "minecraft:gold_nugget",
             "minecraft:blaze_rod",
-            "minecraft:sandstone"
+            "minecraft:sandstone",
+            "minecraft:deepslate_tiles",
+            "minecraft:cracked_deepslate_tiles",
+            "minecraft:deepslate_brick_stairs",
+            "minecraft:deepslate_tile_stairs",
+            "minecraft:deepslate_bricks",
+            "minecraft:cracked_deepslate_bricks",
+            "minecraft:glow_berries",
+            "minecraft:azalea",
+            "minecraft:moss_block",
+            "minecraft:moss_carpet",
+            "minecraft:tuff_bricks"
     };
 
     static double[] worldSpawnCoords = new double[] { 0, 0, 0 };
