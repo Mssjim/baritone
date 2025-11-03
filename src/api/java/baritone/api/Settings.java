@@ -851,6 +851,16 @@ public final class Settings {
     public final Setting<Boolean> shortBaritonePrefix = new Setting<>(false);
 
     /**
+     * Enable or disable macros on tick event
+     */
+    public final Setting<Boolean> tickMacros = new Setting<>(true);
+
+    /**
+     * Enable or disable mining for Sparkly Server
+     */
+    public final Setting<Boolean> sparklyMine = new Setting<>(true);
+
+    /**
      * Use a modern message tag instead of a prefix when logging to chat
      */
     public final Setting<Boolean> useMessageTag = new Setting<>(false);

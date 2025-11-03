@@ -26,6 +26,7 @@ import baritone.api.process.PathingCommandType;
 import baritone.api.utils.*;
 import baritone.api.utils.input.Input;
 import baritone.cache.CachedChunk;
+import baritone.event.GameEventHandler;
 import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.MovementHelper;
 import baritone.utils.BaritoneProcessHelper;
@@ -61,6 +62,26 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
     private GoalRunAway branchPointRunaway;
     private int desiredQuantity;
     private int tickCount;
+    private BlockOptionalMetaLookup blocksToFind;
+    private static final int MAX_BLOB_SIZE = 12;
+    private final LinkedList<Block> listOres = new LinkedList<Block>() {{
+        add(Blocks.DIAMOND_ORE);
+        add(Blocks.EMERALD_ORE);
+        add(Blocks.GOLD_ORE);
+        add(Blocks.IRON_ORE);
+        add(Blocks.LAPIS_ORE);
+        add(Blocks.REDSTONE_ORE);
+        add(Blocks.COAL_ORE);
+        add(Blocks.COPPER_ORE);
+        add(Blocks.DEEPSLATE_DIAMOND_ORE);
+        add(Blocks.DEEPSLATE_EMERALD_ORE);
+        add(Blocks.DEEPSLATE_GOLD_ORE);
+        add(Blocks.DEEPSLATE_IRON_ORE);
+        add(Blocks.DEEPSLATE_LAPIS_ORE);
+        add(Blocks.DEEPSLATE_REDSTONE_ORE);
+        add(Blocks.DEEPSLATE_COAL_ORE);
+        add(Blocks.DEEPSLATE_COPPER_ORE);
+    }};
 
     public MineProcess(Baritone baritone) {
         super(baritone);
@@ -85,18 +106,21 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         }
         if (calcFailed) {
             if (!knownOreLocations.isEmpty() && Baritone.settings().blacklistClosestOnFailure.value) {
-                logDirect("Unable to find any path to " + filter + ", blacklisting presumably unreachable closest instance...");
+                logDirect("Unable to find any path (Ta preso 1), blacklisting presumably unreachable closest instance...");
                 if (Baritone.settings().notificationOnMineFail.value) {
-                    logNotification("Unable to find any path to " + filter + ", blacklisting presumably unreachable closest instance...", true);
+                    logNotification("Unable to find any path (Ta preso 1), blacklisting presumably unreachable closest instance...", true);
                 }
                 knownOreLocations.stream().min(Comparator.comparingDouble(ctx.playerFeet()::distSqr)).ifPresent(blacklist::add);
                 knownOreLocations.removeIf(blacklist::contains);
             } else {
-                logDirect("Unable to find any path to " + filter + ", canceling mine");
+                logDirect("Unable to find any path (Ta preso), canceling mine");
                 if (Baritone.settings().notificationOnMineFail.value) {
-                    logNotification("Unable to find any path to " + filter + ", canceling mine", true);
-                }
+                    logNotification("Unable to find any path (Ta preso), canceling mine", true);
+                } // TODO Alteração do log
                 cancel();
+                if(Baritone.settings().sparklyMine.value) {
+                    mine(0, blocksToFind);
+                }
                 return null;
             }
         }
@@ -187,6 +211,32 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             // can't reassign locs, gotta make a new var locs2, because we use it in a lambda right here, and variables you use in a lambda must be effectively final
             Goal goal = new GoalComposite(locs2.stream().map(loc -> coalesce(loc, locs2, context)).toArray(Goal[]::new));
             knownOreLocations = locs2;
+
+            knownOreLocations.removeIf(pos -> {
+                if(!Baritone.settings().sparklyMine.value) {
+                    return false;
+                }
+                if (blacklist.contains(pos))
+                    return true;
+
+                if (pos.getY() > Baritone.settings().maxYLevelWhileMining.value) {
+                    blacklist.add(pos);
+                    return true;
+                }
+                if (pos.getY() < Baritone.settings().minYLevelWhileMining.value) {
+                    blacklist.add(pos);
+                    return true;
+                }
+
+                // visited.clear(); // Removido para teste
+                // TODO Armazenar os blocos visitados para não ter que calcular novamente
+                if (countConnectedOres(pos) > MAX_BLOB_SIZE) {
+                    blacklist.add(pos);
+                    return true;
+                }
+                return false;
+            });
+
             return new PathingCommand(goal, legit ? PathingCommandType.FORCE_REVALIDATE_GOAL_AND_PATH : PathingCommandType.REVALIDATE_GOAL_AND_PATH);
         }
         // we don't know any ore locations at the moment
@@ -238,8 +288,12 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             logDirect("No locations for " + filter + " known, cancelling");
             if (Baritone.settings().notificationOnMineFail.value) {
                 logNotification("No locations for " + filter + " known, cancelling", true);
+//                logNotification("Retornando a Home l");
             }
-            cancel();
+//            if(this.baritone.getPlayerContext().player() != null) {
+//                this.baritone.getPlayerContext().player().connection.sendCommand("home l");
+//            }
+            cancel(); // TODO Teste para verificar
             return;
         }
         knownOreLocations = locs;
@@ -347,7 +401,11 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         for (Entity entity : ((ClientLevel) ctx.world()).entitiesForRendering()) {
             if (entity instanceof ItemEntity) {
                 ItemEntity ei = (ItemEntity) entity;
-                if (filter.has(ei.getItem())) {
+                if(Baritone.settings().sparklyMine.value) {
+                    if (blocksToFind.has(ei.getItem())) {
+                        ret.add(entity.blockPosition());
+                    }
+                } else if (filter.has(ei.getItem())) {
                     ret.add(entity.blockPosition());
                 }
             }
@@ -399,7 +457,6 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
         knownOreLocations.addAll(dropped);
         BlockPos playerFeet = ctx.playerFeet();
         BlockStateInterface bsi = new BlockStateInterface(ctx);
-
 
         BlockOptionalMetaLookup filter = filterFilter();
         if (filter == null) {
@@ -504,18 +561,30 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
 
     @Override
     public void mine(int quantity, BlockOptionalMetaLookup filter) {
+        blocksToFind = filter;
         this.filter = filter;
         if (this.filterFilter() == null) {
             this.filter = null;
         }
         this.desiredQuantity = quantity;
         this.knownOreLocations = new ArrayList<>();
-        this.blacklist = new ArrayList<>();
+        this.blacklist = new ArrayList<>(); // TODO Remover para continuar com a blacklist antiga
         this.branchPoint = null;
         this.branchPointRunaway = null;
         this.anticipatedDrops = new HashMap<>();
         if (filter != null) {
-            rescan(new ArrayList<>(), new CalculationContext(baritone));
+            logDirect("Minerando...");
+            if(Baritone.settings().sparklyMine.value) {
+                this.filter = new BlockOptionalMetaLookup(listOres);
+                if (ctx.playerFeet().getY() > Baritone.settings().maxYLevelWhileMining.value && GameEventHandler.getWorldName().equals("recursos")) {
+                    logDirect("Player acima do level "+ Baritone.settings().maxYLevelWhileMining.value + "descendendo");
+                    this.baritone.getPlayerContext().player().connection.sendChat(".bgoto " + Baritone.settings().maxYLevelWhileMining.value);
+                } else {
+                    rescan(new ArrayList<>(), new CalculationContext(baritone));
+                }
+            } else {
+                rescan(new ArrayList<>(), new CalculationContext(baritone));
+            }
         }
     }
 
@@ -535,5 +604,56 @@ public final class MineProcess extends BaritoneProcessHelper implements IMinePro
             return f;
         }
         return filter;
+    }
+
+    private int countConnectedOres(BlockPos startPos) {
+        Stack<BlockPos> toVisit = new Stack<>();
+        toVisit.push(startPos);
+        Set<BlockPos> visited = new HashSet<>();
+        visited.add(startPos);
+
+        int count = 0;
+
+        while (!toVisit.isEmpty()) {
+
+            BlockPos pos = toVisit.pop();
+            count++;
+
+            for (BlockPos neighbor : getNeighbors(pos)) {
+                if (!visited.contains(neighbor) && isOreBlock(neighbor)) {
+                    visited.add(neighbor);
+                    toVisit.push(neighbor);
+                }
+            }
+        }
+
+        // Ignorar os Blobs de minerios inválidos
+        if(count < MAX_BLOB_SIZE) {
+            for (BlockPos pos : visited) {
+                LinkedList<Block> blocksToFindList= new LinkedList<>();
+                blocksToFind.blocks().forEach(block -> blocksToFindList.add(block.getBlock()));
+                CalculationContext context = new CalculationContext(baritone);
+                if(isNextToAir(context, pos) && !blocksToFindList.contains(baritone.bsi.get0(pos).getBlock()) && listOres.contains(baritone.bsi.get0(pos).getBlock())) {
+                    count = 777;
+                }
+            }
+        }
+        if(count > MAX_BLOB_SIZE) {
+            blacklist.addAll(visited);
+        }
+        return count;
+    }
+
+    private List<BlockPos> getNeighbors(BlockPos pos) {
+        return Arrays.asList(
+                pos.above(), pos.below(),
+                pos.offset(1, 0, 0), pos.offset(-1, 0, 0),
+                pos.offset(0, 0, 1), pos.offset(0, 0, -1)
+        );
+    }
+
+    private boolean isOreBlock(BlockPos pos) {
+        Block block = baritone.bsi.get0(pos).getBlock();
+        return listOres.contains(block);
     }
 }
